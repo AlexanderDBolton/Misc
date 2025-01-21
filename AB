@@ -1,0 +1,49 @@
+Write a section of a knowledge sharing document for people in a travel management company (TMC). It should discuss the disadvantages of using frequentist (i.e. p-value) methods when conducting an A/B test. Discuss that p-values are hard to interpret; measure statistical significance but not the size or business impact of a change; are risk averse and why that would be bad for a TMC hoping to improve conversions but not bad for a critical vaccine; and how they can be time-consuming to reach the numbers of observations required to detect small uplifts (and the team would be happy to deploy new methods if there is any uplift at all).
+
+Disadvantages of Frequentist (p-value) Methods in A/B Testing for Travel Management Companies
+While frequentist methods (e.g., p-values) are widely used for A/B testing, they present several challenges for travel management companies (TMCs) aiming to optimize conversions and iterate quickly. Below, we outline key drawbacks of relying solely on p-values in this context and their implications for business decision-making.
+
+1. P-Values Are Easily Misinterpreted
+P-values quantify the probability of observing the test results assuming the null hypothesis is true (e.g., "no difference between versions A and B"). However, they are often misunderstood as:
+
+The probability that the null hypothesis is true.
+
+The likelihood that the observed effect is due to chance alone.
+
+A direct measure of the "importance" of the result.
+
+This misinterpretation can lead teams to overvalue "statistically significant" results (e.g., p < 0.05) while undervaluing actionable insights. For example, a TMC might abandon a promising website tweak because a test narrowly missed the p = 0.05 threshold, despite evidence of a potential uplift.
+
+2. Statistical Significance ≠ Business Impact
+P-values measure whether an effect exists, not its magnitude or practical value. A "significant" result could reflect a trivial change (e.g., a 0.1% increase in click-through rates), while a "non-significant" result might mask a small but financially meaningful improvement.
+
+For TMCs, where even minor conversion uplifts (e.g., +0.5% in bookings) can translate to substantial revenue, focusing solely on p-values risks:
+
+Overlooking changes with modest but profitable effects.
+
+Failing to prioritize tests based on ROI potential.
+
+Recommendation: Pair p-values with metrics like confidence intervals, effect sizes, or revenue projections to assess business impact.
+
+3. Risk-Averse Framework
+Frequentist methods prioritize avoiding Type I errors (false positives) at the expense of tolerating Type II errors (false negatives). While this is critical in high-stakes scenarios (e.g., vaccine efficacy trials), it is less aligned with TMC goals:
+
+For TMCs: Missing a true improvement (Type II error) means lost revenue opportunities. For example, delaying a website change that could increase conversions by 1% due to insufficient sample size directly impacts profitability.
+
+For Critical Scenarios: Risk aversion is appropriate when false positives carry severe consequences (e.g., approving an unsafe medical treatment).
+
+This conservative approach can stifle innovation in dynamic industries like travel, where rapid experimentation is key to staying competitive.
+
+4. High Sample Size Requirements for Small Uplifts
+Detecting small but meaningful effects (e.g., a 0.5% increase in booking conversions) with p-values often requires large sample sizes and extended testing periods. For TMCs, this creates operational bottlenecks:
+
+Delayed Deployment: Tests may take weeks to reach "significance," slowing down iterative improvements.
+
+Resource Strain: High-traffic pages (e.g., booking engines) may meet sample size needs quickly, but low-traffic pages (e.g., niche travel offers) may never gather enough data.
+
+If a TMC is willing to deploy any uplift (even a small one), alternative approaches like Bayesian testing or sequential analysis may offer faster insights without rigid sample size requirements.
+
+Conclusion
+While p-values remain a tool for assessing statistical significance, their limitations—misinterpretation risk, lack of business context, risk aversion, and slow iteration—make them suboptimal for TMCs focused on agile conversion optimization. Teams should complement frequentist methods with effect size analysis, ROI projections, and adaptive testing frameworks to balance statistical rigor with business pragmatism. In scenarios where speed and incremental gains matter, exploring alternative methodologies could unlock faster, more actionable outcomes.
+
+Next Steps: Consider piloting Bayesian A/B testing or prioritizing tests based on potential revenue impact rather than statistical significance alone.
