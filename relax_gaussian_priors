@@ -1,0 +1,97 @@
+import numpy as np
+import scipy.stats as stats
+
+def check_k(k, mu0, lam, alpha, beta, seg_means, seg_precisions):
+    """
+    For a given relaxation factor k, check whether the 75% central credible
+    intervals for mu and tau (from the relaxed Normal-Gamma prior)
+    contain all the segment means and precisions.
+    
+    Parameters:
+      k             : relaxation factor (must be >= 1)
+      mu0, lam, alpha, beta : original hyperparameters
+      seg_means     : 1D array of observed segment means
+      seg_precisions: 1D array of observed segment precisions
+      
+    Returns:
+      True if both intervals cover all observed values, False otherwise.
+    """
+    # --- For mu ---
+    # Transformed parameters:
+    lam_rel = lam / k
+    alpha_rel = alpha / k
+    beta_rel  = beta  / k
+    
+    # The marginal for mu (after integrating out tau) is a Student's t with:
+    df = 2 * alpha_rel  # degrees of freedom
+    # Scale factor: sqrt(beta_rel/(lam_rel * alpha_rel))
+    scale_mu = np.sqrt(beta_rel / (lam_rel * alpha_rel))
+    # Because the t distribution is symmetric, the central 75% interval is:
+    t_quant = stats.t.ppf(0.875, df)  # positive quantile
+    margin_mu = t_quant * scale_mu
+    lower_mu = mu0 - margin_mu
+    upper_mu = mu0 + margin_mu
+
+    ok_mu = np.all((seg_means >= lower_mu) & (seg_means <= upper_mu))
+    
+    # --- For tau ---
+    # Relaxed prior for tau: Gamma with shape a = alpha_rel and
+    # scale = 1/(rate) = k / beta  (since rate = beta/k)
+    shape = alpha_rel
+    scale_tau = k / beta
+    lower_tau = stats.gamma.ppf(0.125, a=shape, scale=scale_tau)
+    upper_tau = stats.gamma.ppf(0.875, a=shape, scale=scale_tau)
+    
+    ok_tau = np.all((seg_precisions >= lower_tau) & (seg_precisions <= upper_tau))
+    
+    return ok_mu and ok_tau
+
+def find_min_k(mu0, lam, alpha, beta, seg_means, seg_precisions, tol=1e-4, max_iter=50):
+    """
+    Find the minimal k >= 1 such that the 75% credible intervals for mu and tau
+    (with transformed priors: lam/k, alpha/k, beta/k) cover all the segment means
+    and precisions.
+    
+    We use a binary search. Since the intervals widen monotonically with k,
+    once the condition is met for a given k, it will hold for all larger k.
+    
+    Returns:
+      The minimal k that yields coverage.
+    """
+    # Start at k = 1; if it already covers, then 1 is the answer.
+    k_low = 1.0
+    if check_k(k_low, mu0, lam, alpha, beta, seg_means, seg_precisions):
+        return k_low
+    
+    # Otherwise, find an upper bound where coverage holds.
+    k_high = k_low
+    while not check_k(k_high, mu0, lam, alpha, beta, seg_means, seg_precisions):
+        k_high *= 2.0
+    
+    # Binary search for minimal k in [k_low, k_high]
+    for _ in range(max_iter):
+        k_mid = (k_low + k_high) / 2.0
+        if check_k(k_mid, mu0, lam, alpha, beta, seg_means, seg_precisions):
+            k_high = k_mid
+        else:
+            k_low = k_mid
+        if k_high - k_low < tol:
+            break
+    return k_high
+
+# ----- Example Usage -----
+if __name__ == '__main__':
+    # Original hyperparameters (from prior data)
+    mu0 = 0.0
+    lam = 1.0
+    alpha = 2.0
+    beta = 2.0
+
+    # Suppose these are your observed segment summaries:
+    seg_means = np.array([-0.5, 0.2, 0.1])
+    seg_precisions = np.array([1.5, 2.0, 1.8])
+    
+    # Find the minimal k that "relaxes" the prior enough so that the 75%
+    # intervals cover all the observed segment means and precisions.
+    k_value = find_min_k(mu0, lam, alpha, beta, seg_means, seg_precisions)
+    print("Minimal k for coverage:", k_value)
