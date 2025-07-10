@@ -1,0 +1,39 @@
+WITH YEARS AS (
+  -- Find all years in your data
+  SELECT DISTINCT EXTRACT(YEAR FROM ISSUE_DATE) AS YEAR
+  FROM YOUR_TABLE
+),
+
+WINDOWS AS (
+  -- For each year, compute the first Sunday and last Saturday
+  SELECT
+    YEAR,
+    -- Compute first Sunday on or after Jan 1
+    CASE
+      WHEN DAYOFWEEK(DATE_FROM_PARTS(YEAR, 1, 1)) = 1
+      THEN DATE_FROM_PARTS(YEAR, 1, 1)
+      ELSE DATEADD(
+        DAY,
+        8 - DAYOFWEEK(DATE_FROM_PARTS(YEAR, 1, 1)),
+        DATE_FROM_PARTS(YEAR, 1, 1)
+      )
+    END AS FIRST_SUNDAY,
+    
+    -- Compute last Saturday on or before Dec 31
+    CASE
+      WHEN DAYOFWEEK(DATE_FROM_PARTS(YEAR, 12, 31)) = 7
+      THEN DATE_FROM_PARTS(YEAR, 12, 31)
+      ELSE DATEADD(
+        DAY,
+        -DAYOFWEEK(DATE_FROM_PARTS(YEAR, 12, 31)),
+        DATE_FROM_PARTS(YEAR, 12, 31)
+      )
+    END AS LAST_SATURDAY
+  FROM YEARS
+)
+
+SELECT t.*
+FROM YOUR_TABLE t
+JOIN WINDOWS w
+  ON EXTRACT(YEAR FROM t.ISSUE_DATE) = w.YEAR
+WHERE t.ISSUE_DATE BETWEEN w.FIRST_SUNDAY AND w.LAST_SATURDAY
