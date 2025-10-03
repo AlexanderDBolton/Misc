@@ -1,0 +1,149 @@
+Nice — thoughtful question. Short answer: **option 2 (the joint/partition approach) is the statistically coherent / correct way**. Option 1 is a convenient approximation that can be fine in some circumstances, but it *ignores dependence* coming from shared data (A) and from the mutually exclusive nature of partition hypotheses, so it can give misleading results. Below I’ll explain in concrete terms why, show the exact formulas you need for option 2 (for the Bernoulli/Beta case), give a clean sampling algorithm, point out when option 1 is acceptable, and offer practical alternatives for larger numbers of buckets.
+
+---
+
+# 1) What the two options actually do (interpreting them as probabilistic procedures)
+
+**Option 1 (separate pairwise posteriors, then independently mix draws).**
+You compute posterior model probabilities for B vs A and for C vs A independently:
+
+* (P(H_{1}^{(B)}\mid\text{data})) and (P(H_{0}^{(B)}\mid\text{data})) from A vs B.
+* (P(H_{1}^{(C)}\mid\text{data})), (P(H_{0}^{(C)}\mid\text{data})) from A vs C.
+  Then when you draw posterior samples for (p_B) you mix (p_B\sim) Beta under (H_0^{(B)}) and under (H_1^{(B)}) according to those probabilities, and similarly for (p_C). Critically, you treat the two model indicators (`B differs from A?'' and `C differs from A?'') as independent when you sample — i.e. you approximate the joint posterior (P(\text{model}_B,\text{model}_C\mid\text{data})\approx P(\text{model}_B\mid\text{data})P(\text{model}_C\mid\text{data})).
+
+**Option 2 (full joint over partitions).**
+You explicitly consider all partitions of ({A,B,C}) (the joint hypotheses), compute their posterior probabilities, and then sample (p_A,p_B,p_C) from the exact posterior mixture over those partitions. This respects the fact that the data for A is shared and that model indicators are **dependent**.
+
+---
+
+# 2) Why option 1 can be wrong (dependence / double use of A)
+
+Because B and C both compare to the same A, their posterior model indicators are not independent:
+
+* If data strongly support (p_A=p_B) (B is like A), that same A-data makes it more likely that (p_A=p_C) too (assuming C is similar): the two comparisons are positively correlated through A.
+* Conversely, if you find evidence that (p_B\neq p_A), that changes how strongly you should borrow from A when evaluating C.
+
+Treating them independently (option 1) ignores these correlations and can:
+
+* understate uncertainty when the same A-data is reused, or
+* double-count or undercount evidence for pooling across groups.
+
+Consequence: your Monte Carlo estimate of (P(p_C>p_B)) can be biased (too optimistic or pessimistic) relative to the exact model-averaged posterior.
+
+---
+
+# 3) Option 2: exact approach for Bernoulli + Beta priors (concrete formulas)
+
+For **3 buckets** there are exactly 5 partitions (Bell number (B_3=5)):
+
+1. (M_1:) all equal — (p_A=p_B=p_C).
+2. (M_2:) (A=B), (C) different.
+3. (M_3:) (A=C), (B) different.
+4. (M_4:) (B=C), (A) different.
+5. (M_5:) all different — (p_A), (p_B), (p_C) distinct.
+
+Notation: let (s_X) and (f_X) be successes and failures in bucket (X). Prior on each distinct (p) is (\mathrm{Beta}(\alpha,\beta)). (We are using Bernoulli-sequence so no combinatorial factors.)
+
+**Marginal likelihood for a partition** is the product, over each block (b) of the partition, of the Beta-integrated evidence for the pooled block (sum successes and failures in that block):
+
+[
+m(M) ;=; \prod_{b\in M} \frac{B\big(\alpha + \textstyle\sum_{i\in b} s_i,; \beta + \sum_{i\in b} f_i\big)}{B(\alpha,\beta)}.
+]
+
+Example:
+
+* For (M_2) (A=B, C diff):
+  [
+  m(M_2) ;=; \frac{B(\alpha+s_A+s_B,;\beta+f_A+f_B)}{B(\alpha,\beta)} \times
+  \frac{B(\alpha+s_C,;\beta+f_C)}{B(\alpha,\beta)}.
+  ]
+
+**Posterior probability of model (M)** with model prior (\pi(M)) is
+[
+P(M\mid\text{data}) \propto \pi(M), m(M),
+]
+normalize over the five models.
+
+**Sampling (p)'s from the model-averaged posterior** (one Monte Carlo draw):
+
+1. Draw a model (M) with probability (P(M\mid\text{data})).
+2. For each block (b) in (M), draw a single (p_b \sim \mathrm{Beta}(\alpha + \sum_{i\in b} s_i,; \beta + \sum_{i\in b} f_i)).
+3. Assign that sampled (p_b) to every bucket (i\in b).
+4. Now you have one draw of ((p_A,p_B,p_C)). Repeat many times.
+
+Then estimate (P(p_C>p_B)) as the fraction of Monte Carlo draws where (p_C>p_B). This is exactly equivalent to computing
+[
+P(p_C>p_B\mid\text{data}) = \sum_{M} P(M\mid\text{data});P(p_C>p_B\mid M,\text{data}),
+]
+and the sampling procedure is a straightforward empirical estimator.
+
+---
+
+# 4) Why option 2 is preferable
+
+* **Coherence:** option 2 samples from the exact joint posterior over parameters and models; results are probabilistically correct.
+* **Proper borrowing of information:** when a model ties B and A, the posterior for that block pools their data — which changes the posterior for C when models tie A and C etc.
+* **Multiplicity control:** by working with model priors over partitions you can explicitly encode skepticism about many different parameters/differences (e.g., prefer fewer distinct groups), which provides a natural multiplicity correction.
+
+---
+
+# 5) When option 1 is acceptable / a useful approximation
+
+Option 1 can be acceptable if:
+
+* A is *non-informative* relative to B and C (e.g., A has tiny sample size and little effect on posteriors), so dependence is weak.
+* Signals are extremely strong and all three marginal posteriors strongly separate — dependence matters little.
+* You only need a quick-and-dirty approximation and you understand it may under- or over-state uncertainty.
+
+But since A is shared here and presumably fairly informative, **the approximation may be poor**.
+
+---
+
+# 6) Priors over partitions and practical choices
+
+* If you have no reason to favor particular partitions, a simple prior is to put equal prior mass on each partition ( \pi(M)=1/5). But that treats complex partitions the same as simple ones.
+* A common alternative is to put a prior that **penalizes complexity** (fewer distinct groups get higher prior mass). For example, you might set (\pi(M)\propto \exp(-\lambda\cdot #\text{(distinct groups in }M))) with (\lambda>0). This reflects prior belief that most buckets are similar.
+* For small K (here K=3) it’s trivial to enumerate the whole model space. For larger K you must move to scalable strategies (hierarchical models, Dirichlet process, or MCMC over partition space).
+
+---
+
+# 7) Computational cost and implementation notes
+
+* For K=3: only 5 models — trivial to implement and extremely fast.
+* Numerical stability: work in log-space for the Beta integrals (use (\log B(\cdot,\cdot)) computed via (\lgamma)).
+* If you want point estimates as well, you can compute model-averaged posterior means: e.g. (E[p_B\mid\text{data}] = \sum_M P(M\mid\text{data}) E[p_B\mid M,\text{data}]), and (E[p_B\mid M,\text{data}]) is just the posterior mean of the block Beta.
+* You can reuse your A vs B code to compute the pieces (marginals for pooled blocks), but you’ll need to combine them according to block structure — implementation is straightforward.
+
+---
+
+# 8) Example pseudocode (very short)
+
+```
+# inputs: s_A,f_A,s_B,f_B,s_C,f_C, alpha,beta, prior_over_models
+# enumerate the 5 partitions, for each compute log_marginal = sum_blocks logB(alpha+sum_s, beta+sum_f) - nblocks*logB(alpha,beta)
+# posterior_model_weights = softmax(log_prior + log_marginal)
+# Monte Carlo:
+for i in 1..N:
+    sample M ~ posterior_model_weights
+    for each block b in M:
+        p_b ~ Beta(alpha+sum_s_b, beta+sum_f_b)
+    assign p_A,p_B,p_C from block values
+    record indicator I(p_C > p_B)
+estimate P = mean(I)
+```
+
+---
+
+# 9) Recommendation
+
+* For **K=3**: do **option 2**. It’s easy, exact, and gives coherent model-averaged inferences.
+* If you plan to scale to many buckets, switch to a hierarchical model (exchangeable Beta hyperprior) or an MCMC scheme over partitions; these scale much better than enumerating all partitions as K grows.
+
+---
+
+If you like, I can:
+
+* Give you a short runnable Python snippet that implements option 2 for your Bernoulli/Beta setup and prints (P(p_C>p_B)) and model posterior probabilities, or
+* Demonstrate numerically how option 1 vs option 2 differ on a realistic toy dataset so you can see the practical impact.
+
+Which would you prefer?
