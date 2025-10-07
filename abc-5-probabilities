@@ -1,0 +1,184 @@
+import math
+import numpy as np
+from math import lgamma, sqrt
+
+# ---------- helper math ----------
+def log_beta(a, b):
+    return lgamma(a) + lgamma(b) - lgamma(a + b)
+
+def log_marginal(alpha, beta, s, f):
+    return log_beta(alpha + s, beta + f) - log_beta(alpha, beta)
+
+def compute_model_posteriors(s_vals, f_vals, alpha, beta, prob_no_effect):
+    # s_vals, f_vals are arrays/lists length 3 in order A,B,C
+    sA, sB, sC = s_vals
+    fA, fB, fC = f_vals
+
+    disc = 9 - 4 * (prob_no_effect - 1)
+    if disc < 0:
+        raise ValueError("prob_no_effect out of valid range.")
+    q = (-3.0 + math.sqrt(disc)) / 2.0
+
+    # log priors
+    logP0 = math.log(prob_no_effect)
+    logP1 = logP2 = logP3 = math.log(q)
+    logP4 = 2.0 * math.log(q)
+
+    # log marginal likelihoods (Bernoulli-sequence)
+    log_m0 = log_marginal(alpha, beta, sA + sB + sC, fA + fB + fC)
+    log_m1 = log_marginal(alpha, beta, sA + sB, fA + fB) + log_marginal(alpha, beta, sC, fC)
+    log_m2 = log_marginal(alpha, beta, sA + sC, fA + fC) + log_marginal(alpha, beta, sB, fB)
+    log_m3 = log_marginal(alpha, beta, sB + sC, fB + fC) + log_marginal(alpha, beta, sA, fA)
+    log_m4 = (log_marginal(alpha, beta, sA, fA) +
+              log_marginal(alpha, beta, sB, fB) +
+              log_marginal(alpha, beta, sC, fC))
+
+    logs = [
+        logP0 + log_m0,
+        logP1 + log_m1,
+        logP2 + log_m2,
+        logP3 + log_m3,
+        logP4 + log_m4
+    ]
+
+    max_log = max(logs)
+    weights = [math.exp(l - max_log) for l in logs]
+    total = sum(weights)
+    posts = [w / total for w in weights]
+    log_posts = [math.log(p) if p > 0 else float("-inf") for p in posts]
+
+    model_names = [
+        "M0: A=B=C",
+        "M1: A=B != C",
+        "M2: A=C != B",
+        "M3: B=C != A",
+        "M4: A != B != C"
+    ]
+
+    return model_names, log_posts, posts, q
+
+def sample_model_averaged_vectorized_refactored(sA, fA, sB, fB, sC, fC,
+                                                alpha, beta, prob_no_effect,
+                                                n_samples=200_000, seed=None):
+    """
+    Vectorised model-averaged sampling using a model specification mapping.
+    - sA,fA, sB,fB, sC,fC: counts for A,B,C
+    - alpha,beta: Beta prior params (same for each bucket)
+    - prob_no_effect: prior P(M0)
+    - n_samples: total number of model-averaged draws
+    Returns dict with keys 'model_names','posteriors','q','samples','counts_per_model'
+    """
+    rng = np.random.default_rng(seed)
+
+    s_vals = [sA, sB, sC]
+    f_vals = [fA, fB, fC]
+
+    model_names, log_posts, posts, q = compute_model_posteriors(
+        s_vals, f_vals, alpha, beta, prob_no_effect
+    )
+    posts = np.array(posts, dtype=float)
+
+    # Multinomial allocation of samples to models
+    counts = rng.multinomial(n_samples, posts)
+
+    # MODEL SPECIFICATION:
+    # For each model index (0..4) list the blocks as lists of bucket indices (0=A,1=B,2=C).
+    # Example: M1 (A=B != C) -> blocks [[0,1], [2]]
+    model_specs = [
+        [[0,1,2]],   # M0: A=B=C
+        [[0,1], [2]],# M1: A=B, C separate
+        [[0,2], [1]],# M2: A=C, B separate
+        [[1,2], [0]],# M3: B=C, A separate
+        [[0], [1], [2]] # M4: all different
+    ]
+
+    # Precompute block-level Beta parameters for all possible blocks to avoid recompute
+    # We'll key by tuple(block) -> (a_param, b_param)
+    from collections import defaultdict
+    block_params = {}
+    # All possible blocks (subsets) are: (0,), (1,), (2,), (0,1), (0,2), (1,2), (0,1,2)
+    possible_blocks = [(0,), (1,), (2,), (0,1), (0,2), (1,2), (0,1,2)]
+    for block in possible_blocks:
+        s_block = sum(s_vals[i] for i in block)
+        f_block = sum(f_vals[i] for i in block)
+        block_params[block] = (alpha + s_block, beta + f_block)
+
+    # Container for samples
+    samples = np.full((n_samples, 3), np.nan, dtype=float)
+
+    idx = 0
+    # iterate over models (only 5 iterations) but generic
+    for model_idx, spec in enumerate(model_specs):
+        c = counts[model_idx]
+        if c == 0:
+            continue
+        # For each block in this model, draw c Beta variates and assign them to the columns in that block
+        # Note: block is a list like [0,1] or [2]
+        for block in spec:
+            block_key = tuple(block)
+            a_param, b_param = block_params[block_key]
+            # Draw c samples for this block
+            p_block = rng.beta(a_param, b_param, size=c)  # shape (c,)
+            # Assign to the respective columns for these rows
+            # reshape to (c,1) to broadcast across columns of the block
+            samples[idx:idx+c, block] = p_block.reshape(-1, 1)
+        idx += c
+
+    assert idx == n_samples, "fill mismatch: idx != n_samples"
+    if np.isnan(samples).any():
+        # show some diagnostics (rows with NaN)
+        nan_rows = np.argwhere(np.isnan(samples).any(axis=1)).flatten()
+        raise RuntimeError(f"{nan_rows.size} sample rows left unfilled; example indices: {nan_rows[:10]}")
+
+
+    # Shuffle so samples are not grouped by model
+    rng.shuffle(samples)
+
+    return {
+        "model_names": model_names,
+        "posteriors": posts.tolist(),
+        "q": q,
+        "samples": samples,
+        "counts_per_model": counts
+    }
+
+# ---------- pairwise probabilities ----------
+def pairwise_probs_from_samples(samples, model_posteriors=None):
+    """
+    Given samples shape (N,3) -> compute empirical P(pX > pY), P(pX = pY) (empirical),
+    and if model_posteriors provided compute exact P_equal from models (sum of model posts
+    where pair is tied).
+    Returns dict keyed by ('A','B'), etc.
+    """
+    labels = ['A', 'B', 'C']
+    idx = {'A': 0, 'B': 1, 'C': 2}
+    N = samples.shape[0]
+    res = {}
+
+    # empirical
+    for X in labels:
+        for Y in labels:
+            if X == Y:
+                continue
+            i = idx[X]; j = idx[Y]
+            gt = np.mean(samples[:, i] > samples[:, j])
+            eq = np.mean(np.isclose(samples[:, i], samples[:, j], rtol=1e-12, atol=1e-15))
+            lt = 1.0 - gt - eq
+            res[(X, Y)] = {"P_gt_emp": float(gt), "P_eq_emp": float(eq), "P_lt_emp": float(lt)}
+
+    # exact equality from model-posteriors if provided
+    if model_posteriors is not None:
+        posts = np.array(model_posteriors)
+        tie_map = {
+            ('A', 'B'): [0, 1],  # M0 or M1
+            ('B', 'A'): [0, 1],
+            ('A', 'C'): [0, 2],
+            ('C', 'A'): [0, 2],
+            ('B', 'C'): [0, 3],
+            ('C', 'B'): [0, 3]
+        }
+        for pair in list(res.keys()):
+            idxs = tie_map[pair]
+            res[pair]["P_eq_exact"] = float(posts[idxs].sum())
+
+    return res
