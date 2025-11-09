@@ -1,0 +1,47 @@
+import seaborn as sns
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# before and after bar chart
+df = pd.DataFrame({
+    "description": ["visits", "search", "search2", "hotel"],
+    "before": [130, 230, 245, 12],
+    "after": [15, 34, 23, 3]
+})
+
+df_melted = df.melt(id_vars="description", var_name="phase", value_name="time")
+
+plt.figure(figsize=(6,4))
+sns.barplot(data=df_melted, x="description", y="time", hue="phase", palette=["#d95f02", "#1b9e77"])
+plt.yscale("log")  # optional: makes differences clearer
+plt.ylabel("Runtime (s)")
+plt.title("Query Runtime Speedup")
+plt.tight_layout()
+plt.show()
+
+# speed-up
+df["speedup"] = df["before"] / df["after"]
+
+plt.figure(figsize=(6,4))
+sns.barplot(data=df, x="description", y="speedup", color="#1b9e77")
+plt.ylabel("Speedup (×)")
+plt.title("Query Speedup Factors")
+plt.tight_layout()
+plt.show()
+
+# dumbbell
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(6,4))
+for i, row in df.iterrows():
+    plt.plot([row["before"], row["after"]], [i, i], color="gray", linewidth=2)
+    plt.scatter(row["before"], i, color="#d95f02", s=100, label="Before" if i==0 else "")
+    plt.scatter(row["after"], i, color="#1b9e77", s=100, label="After" if i==0 else "")
+plt.yticks(range(len(df)), df["description"])
+plt.xlabel("Runtime (s)")
+plt.legend()
+plt.title("Query Runtime Reduction")
+plt.gca().invert_yaxis()
+plt.tight_layout()
+plt.show()
+
