@@ -6,14 +6,19 @@ numeric_cols = ['col1', 'col2', 'col3', 'col4', 'col5', 'col6']
 country_col = 'country'
 
 def make_strata_key(df, numeric_cols, n_bins=5):
-    # build a multi-column quantile signature
-    bins = []
+    # will hold binned categorical columns
+    binned_cols = []
+
     for c in numeric_cols:
-        # quantile bins (same number of bins per column)
-        binned = pd.qcut(df[c], q=n_bins, duplicates='drop').astype(str)
-        bins.append(binned)
-    # join them into a composite token
-    return pd.Series(["|".join(row) for row in zip(*bins)])
+        # qcut returns a categorical series aligned to df.index
+        binned = pd.qcut(df[c], q=n_bins, duplicates='drop')
+        binned_cols.append(binned.astype(str))  # safe conversion to string
+
+    # concatenate into a DataFrame so alignment is preserved
+    binned_df = pd.concat(binned_cols, axis=1)
+
+    # join row values to form the composite key
+    return binned_df.apply(lambda row: "|".join(row.values), axis=1)
 
 # allocate empty holders
 holdoutA_parts = []
