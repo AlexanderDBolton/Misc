@@ -1,0 +1,17 @@
+Set the uplift to correspond to approximately -1pp (e.g. cvr = 50%: want to detect a drop of -2%, and no effect is -1% < PR < 1%, cvr = 10%: detect -10%, NE = -5% < PR < 5%)
+
+Power calculation:
+Power is the probability that you detect a drop þ with n days of data.
+So we need pre-data, þ, days.
+Calculate p_h_pre, p_t_pre, alpha_h_pre, ..., and get std_bb as the average from alpha_h_pre, ...
+Simulate a small change to p_h_pre to get p_h_post (2std_h_post = 1pp), p_t_post = p_h_post(1 - þ)
+Calculate alpha_h_post, ... from p_h_post, p_t_post, std_bb
+Simulate the post data
+Check if the prpbability of a decrease from the joint method is greater than 50%.
+Return the proportion of the runs where it was greater than 50%
+
+I think a function to do the simulation already exists. Take the part after the pre parameter calculation out as a separate function, and when we do power calculation, just calculate the pre params once and then pass it to the rest of the function. Or can split it as "calvulate the pre params",  "choose the post params", and "simulate n days of data".
+
+To calculate the minimum required sample size, start with one week, see if power(1 week, -2%) > 80%, if it is then 1, else try 2, then 4, then 8 max. If it is enough then try the midpoint, etc. Let us stay at the resolution of weeks.
+
+To calculate the maximum size detectable with 8 weeks, start at power(8 weeks, -1.5pp (nearest half percent downlift)), and if this is greater than 80%, stop. Else keep doubling up to -24pp, and keep the resolution at half a percent.
