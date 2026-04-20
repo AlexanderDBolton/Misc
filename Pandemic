@@ -1,0 +1,21 @@
+That's a helpful clarification. Let me think through where the value actually lives for your business model.
+
+**Your core monetizable levers are probably:**
+- Retaining and growing client contracts
+- Negotiating better rates with suppliers (airlines, hotel chains, rail) based on volume commitments
+- Upselling policy/compliance tooling or reporting
+- Reducing cost-to-serve
+
+Here's where distributional monitoring of lead times and booking compositions could connect to each of those:
+
+**Supplier negotiations**
+This is probably the highest-value application. Airlines and hotel chains give better rates to buyers who can demonstrate *predictable, committed volume* — not just historical volume. If you can show a supplier "here is our clients' aggregate booking distribution 8 weeks out, with confidence intervals, and here is our track record of forecast accuracy," you are a more credible negotiation partner than a competitor who just shows last year's numbers. You're essentially offering partial demand visibility in exchange for rate concessions. The compositional forecasting gives you a defensible, quantified version of that visibility rather than a gut estimate.
+
+**Early warning on client churn or budget cuts**
+Lead-time compression at the client level — people booking closer and closer to travel date — is historically a signal of budget pressure, because travelers start avoiding non-refundable fares and waiting for approval. If you can detect that pattern 6-8 weeks before it shows up in actual volume decline, you have a window to have a proactive conversation with the client rather than a reactive one when they're already cutting. That's a retention play.
+
+**Selling insight back to clients**
+Some of your larger clients likely have their own internal travel forecasting problem — finance teams trying to accrue travel spend, HR trying to plan relocations, procurement trying to benchmark policy compliance. A quarterly distributional report on their own booking behavior, benchmarked anonymously against peers in their industry, is something that has real value to a CFO or procurement lead. This is a relationship-deepening product that costs you relatively little to produce if you've already built the monitoring infrastructure.
+
+**The one I'd prioritize**
+The supplier angle, because the ROI is direct and measurable. The question is whether your current supplier contracts are volume-based, forecast-based, or neither — and whether you have enough data to build a credible 8-12 week forward view. Do you have a sense of how your supplier negotiations currently work?
